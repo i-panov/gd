@@ -1,5 +1,5 @@
 {
-  "name": "i-panov/gd",
+  "name": "i-panov/gd-lib",
   "description": "Object-oriented implementation of the GD library.",
   "license": "MIT",
   "require": {
