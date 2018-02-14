@@ -5,6 +5,7 @@ namespace GD;
 use GD\Structures\Point;
 use GD\Structures\Size;
 use GD\Structures\Rect;
+use InvalidArgumentException;
 
 class Image {
     const FORMATS = ['png', 'bmp', 'jpeg', 'gif'];
@@ -13,18 +14,18 @@ class Image {
     private $handle;
 
     private function __construct($handle = null) {
+        if (!$handle)
+            throw new InvalidArgumentException('handle');
+
         $this->handle = $handle;
-        yield 0;
     }
 
     /**
      * @param Size $size
      * @return Image
      */
-    public static function of($size) {
-        $result = new self();
-        $result->handle = imagecreatetruecolor($size->width, $size->height);
-        return $result;
+    public static function create($size) {
+        return new self(imagecreatetruecolor($size->width, $size->height));
     }
 
     /**
@@ -36,23 +37,27 @@ class Image {
     }
 
     public function __destruct() {
-        imagedestroy($this->handle);
+        if ($this->handle)
+            imagedestroy($this->handle);
     }
 
     /**
-     * @param string|null $filename
+     * @param string $filename
      * @param int|null $quality
      * @param int|null $filters
      * @return bool
      */
-    public function output($filename = null, $quality = null, $filters = null) {
+    public function save($filename, $quality = null, $filters = null) {
+        if (!$filename)
+            throw new InvalidArgumentException('filename');
+
         $ext = pathinfo($filename, PATHINFO_EXTENSION) ?: 'png';
 
         if ($ext === 'jpg')
             $ext = 'jpeg';
 
         if (!in_array($ext, static::FORMATS))
-            throw new \InvalidArgumentException('invalid extension of file');
+            throw new InvalidArgumentException('invalid extension of file');
 
         $params = [$this->handle];
 
