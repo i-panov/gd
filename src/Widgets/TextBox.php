@@ -82,11 +82,11 @@ class TextBox {
      * @return bool
      */
     public function draw($text) {
-        $r = Font::computeTextBox($this->fontFilename, $this->fontSize, $text, $this->angle);
-        list($boxWidth, $imgWidth) = [$r->size->width, $this->rect->size->width];
+        $computedBox = Font::computeTextBox($text, $this->fontFilename, $this->fontSize, $this->angle);
+        list($computedBoxWidth, $requiredBoxWidth) = [$computedBox->size->width, $this->rect->size->width];
 
-        if ($boxWidth > $imgWidth) {
-            $lineLength = round($boxWidth / $imgWidth * 2.4);
+        if ($computedBoxWidth > $requiredBoxWidth) {
+            $lineLength = (int)round($computedBoxWidth / $requiredBoxWidth * 2.4);
             $text = wordwrap($text, $lineLength, "\n", true);
         }
 

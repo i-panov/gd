@@ -8,8 +8,6 @@ use GD\Structures\Rect;
 use InvalidArgumentException;
 
 class Image {
-    const FORMATS = ['png', 'bmp', 'jpeg', 'gif'];
-
     /** @var resource $handle */
     private $handle;
 
@@ -56,7 +54,7 @@ class Image {
         if ($ext === 'jpg')
             $ext = 'jpeg';
 
-        if (!in_array($ext, static::FORMATS))
+        if (!in_array($ext, ['png', 'bmp', 'jpeg', 'gif']))
             throw new InvalidArgumentException('invalid extension of file');
 
         $params = [$this->handle];
