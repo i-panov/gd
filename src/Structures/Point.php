@@ -4,7 +4,7 @@ namespace GD\Structures;
 
 
 class Point {
-    /** @var int $x, $y */
+    /** @var int */
     public $x = 0, $y = 0;
 
     public static function of($x, $y) {

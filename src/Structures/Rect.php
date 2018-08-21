@@ -4,10 +4,10 @@ namespace GD\Structures;
 
 
 class Rect {
-    /** @var Point $location */
+    /** @var Point */
     public $location;
 
-    /** @var Size $size */
+    /** @var Size */
     public $size;
 
     public function __construct() {

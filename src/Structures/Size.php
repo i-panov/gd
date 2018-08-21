@@ -4,7 +4,7 @@ namespace GD\Structures;
 
 
 class Size {
-    /** @var int $width, $height */
+    /** @var int */
     public $width = 0, $height = 0;
 
     public static function of($width, $height) {

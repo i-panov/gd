@@ -21,15 +21,15 @@ class Font {
         $this->filename = $filename;
     }
 
-    public function getHandle() {
+    public function handle() {
         return $this->handle;
     }
 
-    public function getFilename() {
+    public function filename() {
         return $this->filename;
     }
 
-    public function getSize() {
+    public function size() {
         return Size::of(imagefontwidth($this->handle), imagefontheight($this->handle));
     }
 

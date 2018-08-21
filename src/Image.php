@@ -11,26 +11,31 @@ class Image {
     /** @var resource $handle */
     private $handle;
 
-    private function __construct($handle = null) {
+    /** @var string */
+    public $fontFilename;
+
+    /** @var float */
+    public $fontSize = 10;
+
+    /** @var Color */
+    public $fontColor;
+
+    /** @var float */
+    public $fontRotation = 0;
+
+    private function __construct($handle) {
         if (!$handle)
-            throw new InvalidArgumentException('handle');
+            throw new InvalidArgumentException('handle was null');
 
         $this->handle = $handle;
+        $this->fontColor = new Color();
     }
 
-    /**
-     * @param Size $size
-     * @return Image
-     */
-    public static function create($size) {
+    public static function create(Size $size): Image {
         return new self(imagecreatetruecolor($size->width, $size->height));
     }
 
-    /**
-     * @param string $filename
-     * @return Image
-     */
-    public static function load($filename) {
+    public static function load(string $filename): Image {
         return new self(imagecreatefromstring(file_get_contents($filename)));
     }
 
@@ -45,11 +50,8 @@ class Image {
      * @param int|null $filters
      * @return bool
      */
-    public function save($filename, $quality = null, $filters = null) {
-        if (!$filename)
-            throw new InvalidArgumentException('filename');
-
-        $ext = pathinfo($filename, PATHINFO_EXTENSION) ?: 'png';
+    public function save(string $filename, $quality = null, $filters = null): bool {
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION)) ?: 'png';
 
         if ($ext === 'jpg')
             $ext = 'jpeg';
@@ -57,22 +59,10 @@ class Image {
         if (!in_array($ext, ['png', 'bmp', 'jpeg', 'gif']))
             throw new InvalidArgumentException('invalid extension of file');
 
-        $params = [$this->handle];
-
-        if ($filename) {
-            array_push($params, $filename);
-
-            if ($quality)
-                array_push($params, $quality);
-
-            if ($quality and $filters)
-                array_push($params, $filters);
-        }
-
-        return call_user_func_array("image$ext", $params);
+        return call_user_func("image$ext", $this->handle, $filename, $quality, $filters);
     }
 
-    public function getHandle() {
+    public function handle() {
         return $this->handle;
     }
 
@@ -80,11 +70,7 @@ class Image {
         return Size::of(imagesx($this->handle), imagesy($this->handle));
     }
 
-    /**
-     * @param Size $size
-     * @param int $mode
-     */
-    public function setSize($size, $mode = IMG_BILINEAR_FIXED) {
+    public function setSize(Size $size, int $mode = IMG_BILINEAR_FIXED) {
         imagescale($this->handle, $size->width, $size->height, $mode);
     }
 
@@ -92,19 +78,24 @@ class Image {
         return imageistruecolor($this->handle);
     }
 
-    public function setSaveAlpha($value = false) {
-        return imagesavealpha($this->handle, $value);
+    public function enableAlpha() {
+        $this->disableAlphaBlending();
+        return imagesavealpha($this->handle, true);
     }
 
-    public function setAlphaBlendingEnabled($value = false) {
-        return imagealphablending($this->handle, $value);
+    public function disableAlpha() {
+        return imagesavealpha($this->handle, false);
     }
 
-    /**
-     * @param Rect $rect
-     * @return Image
-     */
-    public function crop($rect) {
+    public function enableAlphaBlending() {
+        return imagealphablending($this->handle, true);
+    }
+
+    public function disableAlphaBlending() {
+        return imagealphablending($this->handle, false);
+    }
+
+    public function crop(Rect $rect): Image {
         return new Image(imagecrop($this->handle, [
             'x' => $rect->location->x,
             'y' => $rect->location->y,
@@ -113,26 +104,21 @@ class Image {
         ]));
     }
 
-    /**
-     * @param string $text
-     * @param string $fontFilename
-     * @param float $fontSize
-     * @param Color $color
-     * @param Point $location
-     * @param int $angle
-     * @return bool
-     */
-    public function drawText($text, $fontFilename, $fontSize, $color, $location, $angle = 0) {
-        return imagettftext($this->handle, $fontSize, $angle, $location->x, $location->y, $color->value, $fontFilename, $text) !== false;
+    public function drawText(string $text, Point $location): bool {
+        return imagettftext(
+                $this->handle,
+                $this->fontSize,
+                $this->fontRotation,
+                $location->x,
+                $location->y,
+                $this->fontColor->value,
+                $this->fontFilename,
+                $text
+            ) !== false;
+    }
     }
 
-    /**
-     * @param Rect $rect
-     * @param Color $color
-     * @param bool $fill
-     * @return bool
-     */
-    public function drawRectangle($rect, $color, $fill = false) {
+    public function drawRectangle(Rect $rect, Color $color, bool $fill = false): bool {
         $lt = $rect->leftTop();
         $rb = $rect->rightBottom();
 

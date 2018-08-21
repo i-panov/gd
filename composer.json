@@ -3,7 +3,7 @@
   "description": "Object-oriented implementation of the GD library.",
   "license": "MIT",
   "require": {
-    "php": ">=5.4",
+    "php": ">=7.0",
     "ext-gd": "*"
   },
   "require-dev": {
