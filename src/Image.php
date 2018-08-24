@@ -9,28 +9,36 @@ use InvalidArgumentException;
 
 class Image {
     const ALIGN_START = -1, ALIGN_CENTER = 0, ALIGN_END = 1;
-    const ALIGN_MULTIPLIERS = [self::ALIGN_START => 0.1, self::ALIGN_CENTER => 0.5, self::ALIGN_END => 0.9];
 
-    /** @var resource $handle */
-    private $handle;
+    /** @var resource $_handle */
+    private $_handle;
+
+    /** @var int */
+    private $_lineThickness = 1;
 
     /** @var string */
     public $fontFilename;
 
     /** @var float */
-    public $fontSize = 10;
+    public $fontSize = 10.0;
 
     /** @var Color */
     public $fontColor;
 
     /** @var float */
-    public $fontRotation = 0;
+    public $fontRotation = 0.0;
+
+    /** @var float */
+    public $textLineHeight = 1.5;
+
+    /** @var float */
+    public $textAlignOffset = 0.0;
 
     private function __construct($handle) {
         if (!$handle)
             throw new InvalidArgumentException('handle was null');
 
-        $this->handle = $handle;
+        $this->_handle = $handle;
         $this->fontColor = new Color();
     }
 
@@ -43,8 +51,8 @@ class Image {
     }
 
     public function __destruct() {
-        if ($this->handle)
-            imagedestroy($this->handle);
+        if ($this->_handle)
+            imagedestroy($this->_handle);
     }
 
     /**
@@ -62,44 +70,44 @@ class Image {
         if (!in_array($ext, ['png', 'bmp', 'jpeg', 'gif']))
             throw new InvalidArgumentException('invalid extension of file');
 
-        return call_user_func("image$ext", $this->handle, $filename, $quality, $filters);
+        return call_user_func("image$ext", $this->_handle, $filename, $quality, $filters);
     }
 
     public function handle() {
-        return $this->handle;
+        return $this->_handle;
     }
 
     public function getSize() {
-        return Size::of(imagesx($this->handle), imagesy($this->handle));
+        return Size::of(imagesx($this->_handle), imagesy($this->_handle));
     }
 
     public function setSize(Size $size, int $mode = IMG_BILINEAR_FIXED) {
-        imagescale($this->handle, $size->width, $size->height, $mode);
+        imagescale($this->_handle, $size->width, $size->height, $mode);
     }
 
     public function isTrueColor() {
-        return imageistruecolor($this->handle);
+        return imageistruecolor($this->_handle);
     }
 
     public function enableAlpha() {
         $this->disableAlphaBlending();
-        return imagesavealpha($this->handle, true);
+        return imagesavealpha($this->_handle, true);
     }
 
     public function disableAlpha() {
-        return imagesavealpha($this->handle, false);
+        return imagesavealpha($this->_handle, false);
     }
 
     public function enableAlphaBlending() {
-        return imagealphablending($this->handle, true);
+        return imagealphablending($this->_handle, true);
     }
 
     public function disableAlphaBlending() {
-        return imagealphablending($this->handle, false);
+        return imagealphablending($this->_handle, false);
     }
 
     public function crop(Rect $rect): Image {
-        return new Image(imagecrop($this->handle, [
+        return new Image(imagecrop($this->_handle, [
             'x' => $rect->location->x,
             'y' => $rect->location->y,
             'width' => $rect->size->width,
@@ -107,9 +115,34 @@ class Image {
         ]));
     }
 
+    public function getLineThickness() {
+        return $this->_lineThickness;
+    }
+
+    public function setLineThickness(int $value) {
+        if (imagesetthickness($this->_handle, $value)) {
+            $this->_lineThickness = $value;
+            return true;
+        }
+
+        return false;
+    }
+
+    public function drawRectangle(Rect $rect, Color $color, bool $fill = false): bool {
+        $lt = $rect->leftTop();
+        $rb = $rect->rightBottom();
+
+        return call_user_func_array($fill ? 'imagefilledrectangle' : 'imagerectangle', [
+            $this->_handle,
+            $lt->x, $lt->y,
+            $rb->x, $rb->y,
+            $color->value
+        ]);
+    }
+
     public function drawText(string $text, Point $location): bool {
         return imagettftext(
-                $this->handle,
+                $this->_handle,
                 $this->fontSize,
                 $this->fontRotation,
                 $location->x,
@@ -121,33 +154,53 @@ class Image {
     }
 
     public function drawTextBox(string $text, Rect $rect, int $horizontalAlign = self::ALIGN_CENTER, int $verticalAlign = self::ALIGN_CENTER) {
-        $sourceFontSize = $fontSize = $this->fontSize;
-        $lineWidth = (int)round($rect->size->width / $sourceFontSize);
-        $text = wordwrap(html_entity_decode($text), $lineWidth);
+        $sourceFontSize = $this->fontSize;
+        $lineWidth = (int)round($rect->size->width / $sourceFontSize * 1.4);
+        $text = $this->wordwrapUtf8($text, $lineWidth);
 
         do {
-            $computedBox = Font::computeTextBox($text, $this->fontFilename, $fontSize--, $this->fontRotation);
-        } while ($computedBox->size->height > $rect->size->height);
+            $textBox = Font::computeTextBox($text, $this->fontFilename, $this->fontSize--, $this->fontRotation);
+        } while ($textBox->size->height > $rect->size->height);
 
-        $fontSize++;
-        $x = $rect->location->x + ($rect->size->width - $computedBox->size->width) * self::ALIGN_MULTIPLIERS[$horizontalAlign];
-        $y = $rect->location->y + $fontSize + ($rect->size->height - $computedBox->size->height) * self::ALIGN_MULTIPLIERS[$verticalAlign];
+        $this->fontSize++;
+        $rect->location->y += $this->fontSize * 2 + ($rect->size->height - $textBox->size->height) * $this->getAlignMultiplier($verticalAlign);
 
-        $this->fontSize = $fontSize;
-        $result = $this->drawText($text, Point::of($x, $y));
+        foreach (explode("\n", $text) as $line) {
+            $lineBox = Font::computeTextBox($line, $this->fontFilename, $this->fontSize, $this->fontRotation);
+            $x = $rect->location->x + ($rect->size->width - $lineBox->size->width) * $this->getAlignMultiplier($horizontalAlign);
+
+            if (!$this->drawText($line, Point::of($x, $rect->location->y)))
+                return false;
+
+            $rect->location->y += $this->fontSize * $this->textLineHeight;
+        }
+
         $this->fontSize = $sourceFontSize;
-        return $result;
+        return true;
     }
 
-    public function drawRectangle(Rect $rect, Color $color, bool $fill = false): bool {
-        $lt = $rect->leftTop();
-        $rb = $rect->rightBottom();
+    private function wordwrapUtf8($text, $width, $break = "\n", $cut = false) {
+        $text = html_entity_decode($text);
+        $text = iconv('utf-8', 'utf-16', $text);
+        $text = wordwrap($text, $width * 2, $break, $cut);
+        return iconv('utf-16', 'utf-8', $text);
+    }
 
-        return call_user_func_array($fill ? 'imagefilledrectangle' : 'imagerectangle', [
-            $this->handle,
-            $lt->x, $lt->y,
-            $rb->x, $rb->y,
-            $color->value
-        ]);
+    private function getAlignMultiplier($align) {
+        $offset = $this->textAlignOffset;
+
+        if ($offset < 0 || $offset >= 0.5)
+            throw new InvalidArgumentException("invalid offset $offset");
+
+        switch ($align) {
+            case self::ALIGN_CENTER:
+                return 0.5;
+            case self::ALIGN_START:
+                return $offset;
+            case self::ALIGN_END:
+                return 1 - $offset;
+            default:
+                throw new InvalidArgumentException("unknown align $align");
+        }
     }
 }
