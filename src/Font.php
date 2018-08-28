@@ -33,14 +33,7 @@ class Font {
         return Size::of(imagefontwidth($this->handle), imagefontheight($this->handle));
     }
 
-    /**
-     * @param string $text
-     * @param string $fontFilename
-     * @param float $fontSize
-     * @param int $angle
-     * @return Rect
-     */
-    public static function computeTextBox($text, $fontFilename, $fontSize, $angle = 0) {
+    public static function computeTextBox(string $text, string $fontFilename, float $fontSize, float $angle = 0) {
         $box = imagettfbbox($fontSize, $angle, $fontFilename, $text);
         $location = Point::of($box[6], $box[7]);
         $size = Size::of($box[2] - $location->x, $box[3] - $location->y);

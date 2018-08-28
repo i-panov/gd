@@ -155,15 +155,14 @@ class Image {
 
     public function drawTextBox(string $text, Rect $rect, int $horizontalAlign = self::ALIGN_CENTER, int $verticalAlign = self::ALIGN_CENTER) {
         $sourceFontSize = $this->fontSize;
-        $lineWidth = (int)round($rect->size->width / $sourceFontSize * 1.4);
-        $text = $this->wordwrapUtf8($text, $lineWidth);
+        $text = $this->wordwrap($text, $rect->size->width);
 
         do {
             $textBox = Font::computeTextBox($text, $this->fontFilename, $this->fontSize--, $this->fontRotation);
         } while ($textBox->size->height > $rect->size->height);
 
         $this->fontSize++;
-        $rect->location->y += $this->fontSize * 2 + ($rect->size->height - $textBox->size->height) * $this->getAlignMultiplier($verticalAlign);
+        $rect->location->y += $this->fontSize + ($rect->size->height - $textBox->size->height) * $this->getAlignMultiplier($verticalAlign);
 
         foreach (explode("\n", $text) as $line) {
             $lineBox = Font::computeTextBox($line, $this->fontFilename, $this->fontSize, $this->fontRotation);
@@ -179,11 +178,19 @@ class Image {
         return true;
     }
 
-    private function wordwrapUtf8($text, $width, $break = "\n", $cut = false) {
-        $text = html_entity_decode($text);
-        $text = iconv('utf-8', 'utf-16', $text);
-        $text = wordwrap($text, $width * 2, $break, $cut);
-        return iconv('utf-16', 'utf-8', $text);
+    private function wordwrap($text, $width) {
+        $result = '';
+
+        foreach (explode(' ', html_entity_decode($text)) as $word) {
+            $box = Font::computeTextBox("$result $word", $this->fontFilename, $this->fontSize, $this->fontRotation);
+
+            if (!$result)
+                $result = $word;
+            else
+                $result .= ($box->size->width > $width ? "\n" : " ") . $word;
+        }
+
+        return $result;
     }
 
     private function getAlignMultiplier($align) {
