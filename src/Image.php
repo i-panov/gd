@@ -47,7 +47,12 @@ class Image {
     }
 
     public static function load(string $filename): Image {
-        return new self(imagecreatefromstring(file_get_contents($filename)));
+        $content = file_get_contents($filename);
+
+        if ($content === false)
+            throw new InvalidArgumentException("Can't open $filename");
+
+        return new self(imagecreatefromstring($content));
     }
 
     public function __destruct() {
