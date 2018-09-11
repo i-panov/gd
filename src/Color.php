@@ -30,6 +30,14 @@ class Color {
         return new self(hexdec(substr($value, 1)));
     }
 
+    /**
+     * @return $this
+     * @throws \Exception
+     */
+    public static function random() {
+        return static::of(random_int(0, 255), random_int(0, 255), random_int(0, 255));
+    }
+
     public function __toString() {
         $minLength = $this->getAlpha() ? 8 : 6;
         $strval = dechex($this->value);
